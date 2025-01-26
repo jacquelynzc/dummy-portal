@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 
 # Ignore data and environment settings
+venv/
 .env
 app/data/*.csv
+
+# Other
+.history
 
