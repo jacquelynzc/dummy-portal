@@ -1,64 +1,89 @@
-import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from app.utils import load_data, filter_data_by_fund, plot_bar_chart, plot_pie_chart
-import sys
-from pathlib import Path
-from app.utils import test_function
-import os
+import streamlit as st
+import plotly.express as px
 
-# Set working directory explicitly
-os.chdir(Path(__file__).resolve().parent.parent)
-sys.path.append(os.getcwd())
+# Load Data
+portfolio_data_path = "data/portfolio-2024-12-21.csv"
+spv_data_path = "data/spv_investors_with_ids.csv"
 
-print("Working Directory:", os.getcwd())
+# Load Portfolio Data
+data = pd.read_csv(portfolio_data_path)
+columns_to_clean_portfolio = ["Initial value", "Current value", "Initial price", "Current price"]
+for column in columns_to_clean_portfolio:
+    data[column] = pd.to_numeric(data[column].replace("[^0-9.]", "", regex=True), errors="coerce")
 
-# Print sys.path for debugging
-print("Python Path:", sys.path)
+# Remove SpaceX combined row (if exists)
+data = data[data["Name"] != "Space Exploration Technologies Corp. (SpaceX)"]
 
-# Ensure the root directory is added to sys.path
-current_dir = Path(__file__).resolve().parent
-root_dir = current_dir.parent
-sys.path.append(str(root_dir))
-print("Updated Python Path:", sys.path)
-print(test_function())
+# Add mock Date column for demonstration
+data["Date"] = pd.date_range(start="2023-01-01", periods=len(data), freq="M")
 
-# Debug Python module search paths
-print("Python Path:", sys.path)
-print("Current Working Directory:", Path(__file__).resolve().parent)
+# Load SPV Data
+spv_data = pd.read_csv(spv_data_path)
+columns_to_clean_spv = [
+    "Ownership", "Ownership by commitment", "Committed", "Called",
+    "Called (with fees)", "Commitment remaining", "Cash position"
+]
+for column in columns_to_clean_spv:
+    if column in spv_data.columns:
+        spv_data[column] = pd.to_numeric(spv_data[column].replace("[^0-9.]+", "", regex=True), errors="coerce")
 
-# Add the parent directory of app/ to the Python path (if not already set)
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+# App Layout
+st.title("Portfolio and Investor Dashboard")
+st.write("Analyze portfolio performance or focus on specific investor data.")
 
-# Load the dataset
-data_path = "app/data/mock_investor_portal_data.csv"
-df = load_data(data_path)
+# Tabs for Portfolio and Investor Views
+tab1, tab2 = st.tabs(["📊 Portfolio View", "👤 Investor View"])
 
-# Streamlit App
-st.title("Investor Portal Dashboard")
-st.write("Explore portfolio data interactively!")
+# Portfolio View
+with tab1:
+    st.subheader("Portfolio Overview")
+    col1, col2 = st.columns(2)
 
-# Display the DataFrame
-st.subheader("Investor Data")
-st.dataframe(df)
+    with col1:
+        total_initial_value = data["Initial value"].sum()
+        total_current_value = data["Current value"].sum()
+        difference_value = total_current_value - total_initial_value
 
-# Filter by Fund
-funds = df["Fund Invested In"].unique()
-selected_fund = st.selectbox("Select a Fund", options=funds)
+        st.metric("Total Initial Value", f"${total_initial_value:,.2f}")
+        st.metric("Total Current Value", f"${total_current_value:,.2f}")
+        st.metric("Difference", f"${difference_value:,.2f}")
 
-# Filter data by selected fund
-filtered_data = filter_data_by_fund(df, selected_fund)
+    with col2:
+        st.write("### Portfolio Composition")
+        fig = px.pie(data, values="Current value", names="Name", title="Portfolio Breakdown")
+        st.plotly_chart(fig)
 
-# Display filtered data
-st.subheader(f"Data for {selected_fund}")
-st.dataframe(filtered_data)
+    st.write("### Portfolio Trends")
+    fig_trend = px.line(data, x="Date", y="Current value", color="Name", title="Portfolio Value Over Time")
+    st.plotly_chart(fig_trend)
 
-# Visualize the data
-st.subheader("Investment Analysis")
+# Investor View
+with tab2:
+    st.subheader("Investor Portfolio")
+    investors = spv_data["Investor"].unique()
+    selected_investor = st.sidebar.selectbox("Select an Investor", investors)
 
-# Bar chart of Amount Invested
-st.pyplot(plot_bar_chart(filtered_data))
+    # Filter data for the selected investor
+    investor_spv_data = spv_data[spv_data["Investor"] == selected_investor]
 
-# Pie chart of Current Value
-st.pyplot(plot_pie_chart(filtered_data))
+    st.write(f"### Data for {selected_investor}")
+    st.dataframe(investor_spv_data)
 
+    st.write("### Investor Metrics")
+    if not investor_spv_data.empty:
+        total_commitment = investor_spv_data["Committed"].sum()
+        total_called = investor_spv_data["Called"].sum()
+        remaining_commitment = investor_spv_data["Commitment remaining"].sum()
+        
+        st.metric("Total Commitment", f"${total_commitment:,.2f}")
+        st.metric("Total Called", f"${total_called:,.2f}")
+        st.metric("Commitment Remaining", f"${remaining_commitment:,.2f}")
+
+    st.write("### Investor Cash Position")
+    if "Cash position" in investor_spv_data.columns:
+        fig_cash = px.bar(
+            investor_spv_data, x="Investor", y="Cash position",
+            title="Cash Position", text="Cash position"
+        )
+        st.plotly_chart(fig_cash)
