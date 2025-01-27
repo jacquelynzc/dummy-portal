@@ -15,7 +15,10 @@ for column in columns_to_clean:
 portfolio_data["Initial value"] = portfolio_data["Initial value"] / 1_000_000
 portfolio_data["Current value"] = portfolio_data["Current value"] / 1_000_000
 
-# Filter out entries with values over 60
+# Round ROI to the nearest whole number for readability
+portfolio_data["Roi"] = portfolio_data["Roi"].round(0).astype(int)
+
+# Filter out entries with values over 60 million
 portfolio_data = portfolio_data[portfolio_data["Current value"] <= 60]
 
 # Manually sort funds by Roman numeral order
@@ -44,28 +47,42 @@ with tab1:
 
     st.metric("Total Initial Value", f"${total_initial_value:,.2f}M")
     st.metric("Total Current Value", f"${total_current_value:,.2f}M")
-    st.metric("Average ROI", f"{roi_avg:.2f}%")
+    st.metric("Average ROI", f"{roi_avg:.0f}%")
 
     st.divider()
 
     st.write("### Growth Breakdown")
     fig_growth = px.bar(
         portfolio_data,
-        x="Name",
-        y=["Initial value", "Current value"],
+        x="Investor",
+        y="Current value",
         title="Portfolio Value Breakdown",
-        labels={"value": "Value (Millions $)", "variable": "Metric"},
-        barmode="group",
-        text_auto=True,
-        color_discrete_map={"Initial value": "#2E91E5", "Current value": "#E15F99"}
+        labels={"value": "Value (Millions $)", "Investor": "Fund Name"},
+        text="Current value",
+        color="Current value",
+        color_continuous_scale="viridis"
     )
     fig_growth.update_traces(
-        textfont_size=18  # Increase font size for readability
+        texttemplate="%{y:.2f}M",  # Ensure values display with two decimal places
+        textfont_size=18,  # Increase font size for readability
+        insidetextanchor="middle"  # Position text in the middle of the bars
     )
+
+    # Add Initial value as labels below bars
+    fig_growth.add_scatter(
+        x=portfolio_data["Investor"],
+        y=portfolio_data["Initial value"],
+        mode="markers+text",
+        text=[f"{val:.2f}M" for val in portfolio_data["Initial value"]],
+        textposition="bottom center",
+        marker=dict(color="gray", size=10, symbol="circle"),
+        name="Initial Value"
+    )
+
     fig_growth.update_layout(
-        xaxis_title="Investment Name",
+        xaxis_title="Fund Name",
         yaxis_title="Value (Millions $)",
-        font=dict(size=18),  # Increase overall font size for better readability
+        font=dict(size=12),  # Increase overall font size for better readability
         height=800,  # Increase height for better visualization
         width=1600,  # Set width to numeric value for compatibility
         margin=dict(t=50, l=50, r=50, b=150),  # Adjust bottom margin for more space
@@ -78,23 +95,23 @@ with tab1:
     st.write("### ROI Comparison")
     fig_roi = px.bar(
         portfolio_data,
-        x="Name",
+        x="Investor",
         y="Roi",
         title="ROI by Portfolio",
-        labels={"Roi": "Return on Investment (%)"},
+        labels={"Roi": "Return on Investment (%)", "Investor": "Fund Name"},
         text="Roi",
         color="Roi",
         color_continuous_scale="viridis"
     )
     fig_roi.update_traces(
-        texttemplate="%{text:.2f}%",
+        texttemplate="%{text}%",
         textposition="outside",
         textfont_size=18  # Increase font size for readability
     )
     fig_roi.update_layout(
-        xaxis_title="Investment Name",
+        xaxis_title="Fund Name",
         yaxis_title="Return on Investment (%)",
-        yaxis=dict(tickformat=".1f%%"),
+        yaxis=dict(tickformat=".0f%%"),
         font=dict(size=18),  # Increase overall font size for better readability
         height=800,  # Increase height for better visualization
         width=1600,  # Set width to numeric value for compatibility
@@ -113,22 +130,20 @@ with tab2:
 
     if not fund_data.empty:
         st.write(f"### {selected_fund} Overview")
-        st.metric(
-            "Initial Investment", f"${fund_data['Initial value'].iloc[0]:,.2f}M"
-        )
-        st.metric(
-            "Current Value", f"${fund_data['Current value'].iloc[0]:,.2f}M"
-        )
-        st.metric(
-            "ROI", f"{fund_data['Roi'].iloc[0]:.2f}%"
-        )
+        initial_value = fund_data["Initial value"].iloc[0]
+        current_value = fund_data["Current value"].iloc[0]
+        roi = fund_data["Roi"].iloc[0]
+
+        st.metric("Initial Investment", f"${initial_value:,.2f}M")
+        st.metric("Current Value", f"${current_value:,.2f}M")
+        st.metric("ROI", f"{roi:.0f}%")
 
         st.divider()
 
         st.write("### Value Growth")
         fig_fund_growth = px.line(
             x=["Initial Value", "Current Value"],
-            y=[fund_data["Initial value"].iloc[0], fund_data["Current value"].iloc[0]],
+            y=[initial_value, current_value],
             title="Investment Growth Over Time",
             labels={"x": "Stage", "y": "Value (Millions $)"},
         )
