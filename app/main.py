@@ -53,7 +53,18 @@ with tab1:
             color_continuous_scale="viridis",
             labels={"Current value": "Value (Millions $)"}
         )
-        fig_growth.update_layout(height=700, font=dict(size=14))  # Increase chart size
+        fig_growth.update_layout(
+            height=700,  # Adjust chart height
+            font=dict(size=16),
+            margin=dict(t=30, l=0, r=0, b=0),  # Adjust margins to center the circle
+            coloraxis_colorbar=dict(
+                thickness=15,  # Reduce colorbar thickness
+                len=.6,  # Shorten the colorbar length
+                orientation="v",
+                title="Value (M)",
+                title_side="right"
+            )
+        )
         st.plotly_chart(fig_growth)
 
     st.write("### ROI Comparison")
@@ -72,7 +83,7 @@ with tab1:
         yaxis_title="Return on Investment (%)",
         yaxis=dict(tickformat=".1f%%"),
         font=dict(size=14),
-        height=600  # Increase height for better visualization
+        height=700  # Increase height for better visualization
     )
     st.plotly_chart(fig_roi)
 
