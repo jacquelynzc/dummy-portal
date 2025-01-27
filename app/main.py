@@ -32,7 +32,7 @@ portfolio_data = portfolio_data.sort_values(by="Investor", key=lambda col: col.m
 
 # App Layout
 st.title("Meyer Equity Dashboard")
-st.write("A detailed view of portfolio growth and fund performance.")
+
 
 # Tabs for Portfolio and Fund Views
 tab1, tab2 = st.tabs(["📊 Portfolio Growth", "👤 Fund Performance"])
@@ -53,36 +53,24 @@ with tab1:
 
     st.write("### Growth Breakdown")
     fig_growth = px.bar(
-        portfolio_data,
+        portfolio_data.melt(id_vars="Investor", value_vars=["Initial value", "Current value"], var_name="Type", value_name="Value"),
         x="Investor",
-        y="Current value",
+        y="Value",
+        color="Type",
         title="Portfolio Value Breakdown",
-        labels={"value": "Value (Millions $)", "Investor": "Fund Name"},
-        text="Current value",
-        color="Current value",
-        color_continuous_scale="viridis"
+        labels={"Value": "Value (Millions $)", "Investor": "Fund Name", "Type": "Metric"},
+        barmode="group",
+        text="Value",
+        color_discrete_sequence=["#636EFA", "#EF553B"]  # Different colors for Initial and Current
     )
     fig_growth.update_traces(
         texttemplate="%{y:.2f}M",  # Ensure values display with two decimal places
-        textfont_size=18,  # Increase font size for readability
-        insidetextanchor="middle"  # Position text in the middle of the bars
+        textfont_size=18  # Increase font size for readability
     )
-
-    # Add Initial value as labels below bars
-    fig_growth.add_scatter(
-        x=portfolio_data["Investor"],
-        y=portfolio_data["Initial value"],
-        mode="markers+text",
-        text=[f"{val:.2f}M" for val in portfolio_data["Initial value"]],
-        textposition="bottom center",
-        marker=dict(color="gray", size=10, symbol="circle"),
-        name="Initial Value"
-    )
-
     fig_growth.update_layout(
         xaxis_title="Fund Name",
         yaxis_title="Value (Millions $)",
-        font=dict(size=12),  # Increase overall font size for better readability
+        font=dict(size=18),  # Increase overall font size for better readability
         height=800,  # Increase height for better visualization
         width=1600,  # Set width to numeric value for compatibility
         margin=dict(t=50, l=50, r=50, b=150),  # Adjust bottom margin for more space
