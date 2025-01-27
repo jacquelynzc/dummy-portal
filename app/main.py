@@ -15,11 +15,17 @@ for column in columns_to_clean:
 portfolio_data["Initial value"] = portfolio_data["Initial value"] / 1_000_000
 portfolio_data["Current value"] = portfolio_data["Current value"] / 1_000_000
 
-# Remove entries with extremely high values to normalize the scale
-portfolio_data = portfolio_data[portfolio_data["Current value"] < 60]
+# Filter out entries with values over 60
+portfolio_data = portfolio_data[portfolio_data["Current value"] <= 60]
 
-# Sort funds alphabetically
-portfolio_data = portfolio_data.sort_values(by="Investor")
+# Manually sort funds by Roman numeral order
+roman_sorted_order = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "11"]
+def custom_sort_key(investor):
+    for index, roman in enumerate(roman_sorted_order):
+        if isinstance(investor, str) and roman in investor:
+            return index
+    return len(roman_sorted_order)
+portfolio_data = portfolio_data.sort_values(by="Investor", key=lambda col: col.map(custom_sort_key))
 
 # App Layout
 st.title("Meyer Equity Dashboard")
@@ -31,41 +37,43 @@ tab1, tab2 = st.tabs(["📊 Portfolio Growth", "👤 Fund Performance"])
 # Portfolio Growth Tab
 with tab1:
     st.subheader("Portfolio Overview")
-    col1, col2 = st.columns(2)
 
-    with col1:
-        total_initial_value = portfolio_data["Initial value"].sum()
-        total_current_value = portfolio_data["Current value"].sum()
-        roi_avg = ((total_current_value - total_initial_value) / total_initial_value) * 100
+    total_initial_value = portfolio_data["Initial value"].sum()
+    total_current_value = portfolio_data["Current value"].sum()
+    roi_avg = ((total_current_value - total_initial_value) / total_initial_value) * 100
 
-        st.metric("Total Initial Value", f"${total_initial_value:,.2f}M")
-        st.metric("Total Current Value", f"${total_current_value:,.2f}M")
-        st.metric("Average ROI", f"{roi_avg:.2f}%")
+    st.metric("Total Initial Value", f"${total_initial_value:,.2f}M")
+    st.metric("Total Current Value", f"${total_current_value:,.2f}M")
+    st.metric("Average ROI", f"{roi_avg:.2f}%")
 
-    with col2:
-        st.write("### Growth Breakdown")
-        fig_growth = px.sunburst(
-            portfolio_data,
-            path=["Investor", "Name"],
-            values="Current value",
-            color="Current value",
-            title="Portfolio Value Breakdown",
-            color_continuous_scale="viridis",
-            labels={"Current value": "Value (Millions $)"}
-        )
-        fig_growth.update_layout(
-            height=700,  # Adjust chart height
-            font=dict(size=16),
-            margin=dict(t=30, l=0, r=0, b=0),  # Adjust margins to center the circle
-            coloraxis_colorbar=dict(
-                thickness=15,  # Reduce colorbar thickness
-                len=.6,  # Shorten the colorbar length
-                orientation="v",
-                title="Value (M)",
-                title_side="right"
-            )
-        )
-        st.plotly_chart(fig_growth)
+    st.divider()
+
+    st.write("### Growth Breakdown")
+    fig_growth = px.bar(
+        portfolio_data,
+        x="Name",
+        y=["Initial value", "Current value"],
+        title="Portfolio Value Breakdown",
+        labels={"value": "Value (Millions $)", "variable": "Metric"},
+        barmode="group",
+        text_auto=True,
+        color_discrete_map={"Initial value": "#2E91E5", "Current value": "#E15F99"}
+    )
+    fig_growth.update_traces(
+        textfont_size=18  # Increase font size for readability
+    )
+    fig_growth.update_layout(
+        xaxis_title="Investment Name",
+        yaxis_title="Value (Millions $)",
+        font=dict(size=18),  # Increase overall font size for better readability
+        height=800,  # Increase height for better visualization
+        width=1600,  # Set width to numeric value for compatibility
+        margin=dict(t=50, l=50, r=50, b=150),  # Adjust bottom margin for more space
+        xaxis=dict(tickangle=45)  # Rotate x-axis labels for better visibility
+    )
+    st.plotly_chart(fig_growth)
+
+    st.divider()
 
     st.write("### ROI Comparison")
     fig_roi = px.bar(
@@ -78,12 +86,19 @@ with tab1:
         color="Roi",
         color_continuous_scale="viridis"
     )
+    fig_roi.update_traces(
+        texttemplate="%{text:.2f}%",
+        textposition="outside",
+        textfont_size=18  # Increase font size for readability
+    )
     fig_roi.update_layout(
         xaxis_title="Investment Name",
         yaxis_title="Return on Investment (%)",
         yaxis=dict(tickformat=".1f%%"),
-        font=dict(size=14),
-        height=700  # Increase height for better visualization
+        font=dict(size=18),  # Increase overall font size for better readability
+        height=800,  # Increase height for better visualization
+        width=1600,  # Set width to numeric value for compatibility
+        xaxis=dict(tickangle=45)  # Rotate x-axis labels for better visibility
     )
     st.plotly_chart(fig_roi)
 
@@ -107,6 +122,8 @@ with tab2:
         st.metric(
             "ROI", f"{fund_data['Roi'].iloc[0]:.2f}%"
         )
+
+        st.divider()
 
         st.write("### Value Growth")
         fig_fund_growth = px.line(
